@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -28,7 +29,7 @@ func NewAbsAPI(url string, apikey string, parameters map[string]string, cve stri
 	return absapi
 }
 
-func (api AbsAPI) Request() http.Response {
+func (api AbsAPI) Request() string {
 	var resp *http.Response
 	var err error
 
@@ -50,13 +51,25 @@ func (api AbsAPI) Request() http.Response {
 		resp, err = client.Do(req)
 
 		if err == nil {
-			return *resp
+			body, errRead := ioutil.ReadAll(resp.Body)
+
+			if errRead == nil {
+				resp.Body.Close()
+				if api.parseResponse(body) {
+					jsonResult, errJson := json.Marshal(api.CVEInfo)
+
+					if errJson == nil {
+						return string(jsonResult)
+					}
+				}
+			}
+
 		}
 	}
-	return http.Response{}
+	return ""
 }
 
-func (api *AbsAPI) ParseResponse(body []byte) bool {
+func (api *AbsAPI) parseResponse(body []byte) bool {
 	err := json.Unmarshal(body, &api.CVEInfo)
 
 	if err == nil {
